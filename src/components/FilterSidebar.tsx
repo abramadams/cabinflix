@@ -141,7 +141,7 @@ export default function FilterSidebar({
               onChange={(e) => handleYearRangeChange(0, parseInt(e.target.value) || 1900)}
               min="1900"
               max="2024"
-              className="w-20 px-2 py-1 text-sm border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-20 px-2 py-1 text-sm border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground"
             />
             <span className="text-sm text-muted-foreground">to</span>
             <input
@@ -150,7 +150,7 @@ export default function FilterSidebar({
               onChange={(e) => handleYearRangeChange(1, parseInt(e.target.value) || 2024)}
               min="1900"
               max="2024"
-              className="w-20 px-2 py-1 text-sm border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-20 px-2 py-1 text-sm border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground"
             />
           </div>
           
