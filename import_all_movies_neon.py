@@ -50,8 +50,17 @@ def import_all_movies():
         
         # Load enriched data if available to merge with basic data
         enriched_movies = {}
-        if os.path.exists('enriched_movies.json'):
-            print("📁 Loading enriched data to merge...")
+        if os.path.exists('improved_enriched_movies.json'):
+            print("📁 Loading improved enriched data to merge...")
+            with open('improved_enriched_movies.json', 'r') as f:
+                enriched_data = json.load(f)
+                for movie in enriched_data:
+                    if movie.get('tmdb_id'):
+                        enriched_movies[movie['tmdb_id']] = movie
+                    # Also index by title for fallback matching
+                    enriched_movies[movie['title'].lower()] = movie
+        elif os.path.exists('enriched_movies.json'):
+            print("📁 Loading original enriched data to merge...")
             with open('enriched_movies.json', 'r') as f:
                 enriched_data = json.load(f)
                 for movie in enriched_data:
