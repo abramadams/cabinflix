@@ -15,21 +15,6 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '1000') // Increased default limit
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    // Test database connection first
-    try {
-      await pool.query('SELECT 1')
-    } catch (dbError) {
-      console.error('Database connection failed:', dbError)
-      return NextResponse.json(
-        { 
-          error: 'Database connection failed', 
-          movies: [], 
-          total: 0 
-        },
-        { status: 500 }
-      )
-    }
-
     // Build the base WHERE clause for counting
     let countSql = `
       SELECT COUNT(DISTINCT m.id) as total
@@ -131,35 +116,32 @@ export async function GET(request: NextRequest) {
     const movies = result.rows.map((row: any) => ({
       id: row.id,
       title: row.title,
-      originalTitle: row.original_title,
-      tmdbId: row.tmdb_id,
-      releaseDate: row.release_date,
+      original_title: row.original_title,
+      tmdb_id: row.tmdb_id,
+      release_date: row.release_date,
       runtime: row.runtime,
       overview: row.overview,
-      posterPath: row.poster_path,
-      backdropPath: row.backdrop_path,
-      voteAverage: row.vote_average,
-      voteCount: row.vote_count,
-      popularity: row.popularity,
-      trailerUrl: row.trailer_url,
-      rating: row.rating,
-      genres: row.genres || []
+      poster_path: row.poster_path,
+      backdrop_path: row.backdrop_path,
+      vote_average: row.vote_average ? Number(row.vote_average) : null,
+      vote_count: row.vote_count ? Number(row.vote_count) : null,
+              popularity: row.popularity ? Number(row.popularity) : null,
+        trailer_url: row.trailer_url,
+        rating: row.rating,
+        genres: row.genres || []
     }))
 
     return NextResponse.json({
       movies,
       total,
-      hasMore: movies.length === limit
+      limit,
+      offset
     })
 
   } catch (error) {
-    console.error('API Error:', error)
+    console.error('Database error:', error)
     return NextResponse.json(
-      { 
-        error: 'Internal server error', 
-        movies: [], 
-        total: 0 
-      },
+      { error: 'Failed to fetch movies' },
       { status: 500 }
     )
   }

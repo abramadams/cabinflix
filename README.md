@@ -4,13 +4,14 @@ A Netflix-style web application to browse your cabin DVD movie collection. Built
 
 ## ✨ Features
 
-- **781 Movies**: Your complete movie collection from Excel
+- **775 Movies**: Your complete movie collection with 99.4% enrichment rate
 - **Smart Search**: Search by title, overview, or genres
 - **Advanced Filtering**: Filter by genre, rating (PG, PG-13, R, etc.), and year range
 - **Infinite Scroll**: Smooth pagination for performance
 - **Movie Details**: Click info button for detailed movie information with inline trailers
 - **Responsive Design**: Works on desktop, tablet, and mobile
 - **Dark Theme**: Modern Netflix-style interface
+- **Debounced Year Filter**: Smooth year range selection without page reloads
 
 ## 🚀 Quick Start
 
@@ -27,38 +28,42 @@ A Netflix-style web application to browse your cabin DVD movie collection. Built
    npm install
    ```
 
-3. **Set up the database**
+3. **Set up environment variables**
    ```bash
-   # Start PostgreSQL with Docker
+   # Copy the example environment file
+   cp env.example .env
+   
+   # Edit .env with your actual values
+   # - DATABASE_URL: Your Neon/PostgreSQL connection string
+   # - TMDB_API_KEY: Your TMDB API key (optional, for data enrichment)
+   ```
+
+4. **Set up the database**
+   ```bash
+   # For Neon database (recommended)
+   python3 setup_neon_db.py
+   
+   # For local PostgreSQL with Docker
    docker compose up -d postgres
-   
-   # Run the database initialization
-   docker compose exec postgres psql -U postgres -d cabinflix -f /docker-entrypoint-initdb.d/init.sql
    ```
 
-4. **Import your movie data**
+5. **Import your movie data**
    ```bash
-   # Extract movies from Excel
-   python3 extract_movies.py
-   
-   # Enrich with TMDB data (optional)
-   python3 enrich_movies.py
-   
-   # Import to database
-   python3 import_all_movies.py
+   # Import movies to your database
+   python3 import_all_movies_neon.py
    ```
 
-5. **Start the development server**
+6. **Start the development server**
    ```bash
-   docker compose up -d
+   npm run dev
    ```
 
-6. **Open your browser**
-   Navigate to [http://localhost:3003](http://localhost:3003)
+7. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## 🌐 Deployment
 
-### Option 1: Vercel (Recommended)
+### Vercel Deployment (Recommended)
 
 1. **Push to GitHub**
    ```bash
@@ -76,80 +81,135 @@ A Netflix-style web application to browse your cabin DVD movie collection. Built
 3. **Set up environment variables**
    In your Vercel project settings, add:
    ```
-   DB_HOST=your-database-host
-   DB_PORT=5432
-   DB_NAME=cabinflix
-   DB_USER=your-db-user
-   DB_PASSWORD=your-db-password
+   DATABASE_URL=your-neon-database-connection-string
+   TMDB_API_KEY=your-tmdb-api-key
    ```
 
 4. **Deploy**
    - Vercel will automatically deploy on every push
    - Your app will be available at `https://your-project.vercel.app`
 
-### Option 2: Railway
+### Database Sync Process
 
-1. **Connect to Railway**
-   - Go to [railway.app](https://railway.app)
-   - Sign up/Login with GitHub
-   - Click "New Project" → "Deploy from GitHub repo"
+When you need to update the remote database with local changes:
 
-2. **Add PostgreSQL**
-   - Click "New" → "Database" → "PostgreSQL"
-   - Railway will provide connection details
+```bash
+# Export current local database state
+python3 -c "
+import json
+import psycopg2
+from decimal import Decimal
+from dotenv import load_dotenv
+import os
 
-3. **Set environment variables**
-   Railway will automatically set the database environment variables
+load_dotenv()
 
-4. **Deploy**
-   - Railway will automatically deploy your app
-   - Your app will be available at the provided URL
+conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+cursor = conn.cursor()
+
+cursor.execute('''
+    SELECT id, title, tmdb_id, release_date, rating, poster_path,
+           backdrop_path, overview, popularity, vote_average, vote_count
+    FROM movies
+    ORDER BY title
+''')
+
+movies = []
+for row in cursor.fetchall():
+    movies.append({
+        'id': row[0],
+        'title': row[1],
+        'tmdb_id': row[2],
+        'release_date': str(row[3]) if row[3] else None,
+        'rating': row[4],
+        'poster_path': row[5],
+        'backdrop_path': row[6],
+        'overview': row[7],
+        'popularity': float(row[8]) if row[8] else None,
+        'vote_average': float(row[9]) if row[9] else None,
+        'vote_count': int(row[10]) if row[10] else None
+    })
+
+with open('current_database_export.json', 'w') as f:
+    json.dump(movies, f, indent=2)
+
+print(f'✅ Exported {len(movies)} movies')
+conn.close()
+"
+
+# Sync to remote database
+python3 sync_remote_database.py
+```
 
 ## 🗄️ Database Setup
 
+### Neon Database (Recommended)
+1. **Create account** at [neon.tech](https://neon.tech)
+2. **Create new project**
+3. **Get connection string** from dashboard
+4. **Update .env** with your connection string
+5. **Run setup script**: `python3 setup_neon_db.py`
+
 ### Local PostgreSQL
-```sql
--- Create database
-CREATE DATABASE cabinflix;
+```bash
+# Start with Docker
+docker compose up -d postgres
 
--- Run the initialization script
-\i supabase/init.sql
+# Or install PostgreSQL locally
+# Then run: python3 setup_neon_db.py
 ```
-
-### Cloud Database Options
-- **Neon** (Free tier available): [neon.tech](https://neon.tech)
-- **Supabase** (Free tier available): [supabase.com](https://supabase.com)
-- **Railway** (Free tier available): [railway.app](https://railway.app)
 
 ## 📊 Data Structure
 
 The app includes:
-- **781 Movies** from your original Excel file
-- **397 Enriched Movies** with TMDB data (posters, ratings, genres, trailers)
-- **384 Basic Movies** with just titles (placeholder images)
-- **19 Genres** for filtering
+- **775 Movies** total
+- **770 Enriched Movies** with TMDB data (99.4% enrichment rate)
+- **5 Basic Movies** with just titles (placeholder images)
+- **18 Genres** for filtering
+- **6 Rating Categories** (G, PG, PG-13, R, NC-17, NR)
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: Next.js 14, React 18, TypeScript
 - **Styling**: Tailwind CSS, Framer Motion
-- **Database**: PostgreSQL
+- **Database**: PostgreSQL (Neon)
 - **Movie Data**: TMDB API
-- **Deployment**: Vercel/Railway
+- **Deployment**: Vercel
 
 ## 📝 Environment Variables
 
 ```env
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=cabinflix
-DB_USER=postgres
-DB_PASSWORD=postgres
+# Database Configuration
+DATABASE_URL=postgresql://username:password@host:port/database
 
-# TMDB API (for data enrichment)
-TMDB_API_KEY=your-tmdb-api-key
+# TMDB API Configuration (optional)
+TMDB_API_KEY=your-tmdb-api-key-here
+TMDB_BASE_URL=https://api.themoviedb.org/3
+
+# Supabase Configuration (if using Supabase)
+SUPABASE_URL=your-supabase-url
+SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
+
+## 🔧 Available Scripts
+
+### Database Management
+- `setup_neon_db.py` - Initialize database schema
+- `import_all_movies_neon.py` - Import movies to Neon database
+- `sync_remote_database.py` - Sync local data to remote database
+- `import_all_movies.py` - Legacy import script (backup)
+
+### Development
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+
+## 🎯 Current Status
+
+- ✅ **99.4% Data Enrichment** - 770/775 movies have TMDB data
+- ✅ **Clean Codebase** - Removed 20+ temporary scripts
+- ✅ **Optimized UI** - Fixed year filter with debouncing
+- ✅ **Production Ready** - Deployed on Vercel with Neon database
 
 ## 🤝 Contributing
 
@@ -165,4 +225,3 @@ This project is open source and available under the [MIT License](LICENSE).
 ---
 
 **Enjoy browsing your movie collection! 🎬✨**
-# Trigger new deployment
