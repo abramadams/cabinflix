@@ -1,0 +1,42 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: deps
+    ports:
+      - "3003:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/cabinflix
+    command: npm run dev
+    depends_on:
+      - postgres
+    networks:
+      - cabinflix-network
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: cabinflix
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./supabase/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - cabinflix-network
+
+volumes:
+  postgres_data:
+
+networks:
+  cabinflix-network:
+    driver: bridge
