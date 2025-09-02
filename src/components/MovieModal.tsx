@@ -14,13 +14,44 @@ interface MovieModalProps {
 
 export default function MovieModal({ movie, isOpen, onClose }: MovieModalProps) {
   const [isPlaying, setIsPlaying] = useState(false)
+  const [trailerUrl, setTrailerUrl] = useState<string | null>(null)
+  const [isLoadingTrailer, setIsLoadingTrailer] = useState(false)
 
   // Reset video state when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setIsPlaying(false)
+      setTrailerUrl(null)
     }
   }, [isOpen])
+
+  // Fetch trailer URL when modal opens
+  useEffect(() => {
+    if (isOpen && movie?.tmdb_id && !trailerUrl && !movie.trailer_url) {
+      fetchTrailerUrl()
+    } else if (movie?.trailer_url) {
+      setTrailerUrl(movie.trailer_url)
+    }
+  }, [isOpen, movie, trailerUrl])
+
+  const fetchTrailerUrl = async () => {
+    if (!movie?.tmdb_id) return
+    
+    setIsLoadingTrailer(true)
+    try {
+      const response = await fetch(`/api/trailer?tmdbId=${movie.tmdb_id}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.trailerUrl) {
+          setTrailerUrl(data.trailerUrl)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch trailer:', error)
+    } finally {
+      setIsLoadingTrailer(false)
+    }
+  }
 
   // Close modal on escape key
   useEffect(() => {
@@ -69,7 +100,7 @@ export default function MovieModal({ movie, isOpen, onClose }: MovieModalProps) 
     return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0` : null
   }
 
-  const embedUrl = getEmbedUrl(movie.trailer_url || '')
+  const embedUrl = getEmbedUrl(trailerUrl || '')
 
   const handlePlayTrailer = () => {
     setIsPlaying(true)
@@ -78,6 +109,8 @@ export default function MovieModal({ movie, isOpen, onClose }: MovieModalProps) 
   const handleCloseTrailer = () => {
     setIsPlaying(false)
   }
+
+  const hasTrailer = trailerUrl || movie.trailer_url
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -164,13 +197,14 @@ export default function MovieModal({ movie, isOpen, onClose }: MovieModalProps) 
                   
                   {/* Action buttons */}
                   <div className="flex gap-3">
-                    {embedUrl && (
+                    {hasTrailer && (
                       <button
                         onClick={handlePlayTrailer}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+                        disabled={isLoadingTrailer}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Play className="h-4 w-4" />
-                        Watch Trailer
+                        {isLoadingTrailer ? 'Loading...' : 'Watch Trailer'}
                       </button>
                     )}
                     {movie.tmdb_id && (
@@ -234,22 +268,22 @@ export default function MovieModal({ movie, isOpen, onClose }: MovieModalProps) 
                   </span>
                 </div>
               )}
-                          {movie.vote_average && (
-              <div>
-                <span className="font-medium text-foreground">Rating:</span>
-                <span className="text-muted-foreground ml-2">
-                  {Number(movie.vote_average).toFixed(1)}/10
-                </span>
-              </div>
-            )}
-            {movie.rating && (
-              <div>
-                <span className="font-medium text-foreground">MPAA Rating:</span>
-                <span className="text-muted-foreground ml-2">
-                  {movie.rating}
-                </span>
-              </div>
-            )}
+              {movie.vote_average && (
+                <div>
+                  <span className="font-medium text-foreground">Rating:</span>
+                  <span className="text-muted-foreground ml-2">
+                    {Number(movie.vote_average).toFixed(1)}/10
+                  </span>
+                </div>
+              )}
+              {movie.rating && (
+                <div>
+                  <span className="font-medium text-foreground">MPAA Rating:</span>
+                  <span className="text-muted-foreground ml-2">
+                    {movie.rating}
+                  </span>
+                </div>
+              )}
               {movie.vote_count && (
                 <div>
                   <span className="font-medium text-foreground">Votes:</span>
